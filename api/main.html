@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<head>
+  <script>var whTooltips = {iconSize: 'medium', iconizeLinks: true};</script>
+  <script src="https://wow.zamimg.com/widgets/power.js"></script>
+</head>
+<body>
+  {% for item in items %}
+    <a href="//classic.wowhead.com/item={{ item['id'] }}"></a>{{ item['name'] }}
+  {% endfor %}
+</body>
