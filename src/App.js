@@ -279,7 +279,7 @@ class StorageTable extends React.Component {
     var items = this.state.items;
     for (var itemId in storage) {
       var row = [
-        <a href={"https://classic.wowhead.com/item=" + itemId} data-wh-rename-link={false}>{items[itemId] || 'Unknown'}</a>,
+        <a href={"https://classic.wowhead.com/item=" + itemId} data-wh-rename-link="false">{items[itemId] || 'Unknown'}</a>,
         [],  // Quantity
         [],  // Character
         items[itemId] || '',
@@ -369,19 +369,15 @@ class MyModal extends React.Component {
     super(props);
     this.state = {
       showModal: false,
-      addonString: "",
-      validAddonString: true,
-      addonStringUploaded: false,
       submitted: false,
-      loading: false,
-      error: false,
+      addonStringUploaded: false,
     };
 
     this.showModal = this.showModal.bind(this);
     this.closeModal = this.closeModal.bind(this);
     this.resetModal = this.resetModal.bind(this);
-    this.handleTextChange = this.handleTextChange.bind(this);
-    this.parseAddonString = this.parseAddonString.bind(this);
+    this.setSubmitted = this.setSubmitted.bind(this);
+    this.setAddonStringUploaded = this.setAddonStringUploaded.bind(this);
   }
 
   showModal() {
@@ -399,7 +395,49 @@ class MyModal extends React.Component {
     }
   }
 
-  handleTextChange(e) {
+  setSubmitted(value) {
+    this.setState({submitted: value});
+  }
+
+  setAddonStringUploaded(value) {
+    this.setState({addonStringUploaded: value});
+  }
+
+  render() {
+    return (
+      <>
+        <Button variant="primary" onClick={this.showModal} className="uploadButton">
+          Upload Data
+        </Button>
+        <Modal show={this.state.showModal} onHide={this.closeModal} onExited={this.resetModal} size="lg" centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Upload Data</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <MyModalBody addonStringUploaded={this.state.addonStringUploaded} setAddonStringUploaded={this.setAddonStringUploaded} setSubmitted={this.setSubmitted}/>
+          </Modal.Body>
+        </Modal>
+      </>
+    );
+  }
+}
+
+class MyModalBody extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      addonString: "",
+      validAddonString: true,
+      phaseTwo: false,
+      loading: false,
+      error: false,
+    };
+
+    this.handleAddonStringChange = this.handleAddonStringChange.bind(this);
+    this.parseAddonString = this.parseAddonString.bind(this);
+  }
+
+  handleAddonStringChange(e) {
     this.setState({addonString: e.target.value});
     if (this.isValidJSON(e.target.value)) {
       this.setState({validAddonString: true});
@@ -425,12 +463,12 @@ class MyModal extends React.Component {
   parseAddonString(e) {
     e.preventDefault();
     if (this.isValidJSON(this.state.addonString)) {
-      this.setState({addonStringUploaded: true});
+      this.props.setAddonStringUploaded(true);
       var json = JSON.parse(this.state.addonString);
       this.uploadStorageData(json);
       if (json['transactions'].length === 0) {
         //TODO: Modify for phase 2
-        this.setState({submitted: true});
+        this.props.setSubmitted(true);
       }
     } else {
       this.setState({validAddonString: false});
@@ -456,47 +494,32 @@ class MyModal extends React.Component {
         this.setState({loading: false});
       })
       .catch(error => {
-        this.setState({submitted: false, loading: false, error: true});
+        this.props.setSubmitted(false);
+        this.setState({loading: false, error: true});
         console.error('There was an error!', error);
       });
     this.setState({loading: true});
   }
 
   render() {
-    var modalBody = ""
     if (this.state.error) {
-      modalBody = "There was an error.  Please try again later.";
+      return "There was an error.  Please try again later.";
     } else if (this.state.loading) {
-      modalBody = <Spinner animation="border" variant="primary" />
-    } else if (this.state.addonStringUploaded) {
-      modalBody = "Submitted";
+      return <Spinner animation="border" variant="primary" />
+    } else if (this.props.addonStringUploaded) {
+      return "Submitted";
     } else {
-      modalBody = (
+      return (
         <Form validated={this.state.validAddonString} onSubmit={this.parseAddonString}>
           <Form.Group controlId="inputAddonString">
             <Form.Label>Paste Addon String Below</Form.Label>
-            <Form.Control as="textarea" rows="5" onChange={this.handleTextChange} isInvalid={!this.state.validAddonString}/>
+            <Form.Control as="textarea" rows="5" onChange={this.handleAddonStringChange} isInvalid={!this.state.validAddonString}/>
             <Form.Control.Feedback type="invalid">Invalid Addon String</Form.Control.Feedback>
           </Form.Group>
           <Button type="submit">Upload</Button>
         </Form>
       );
     }
-    return (
-      <>
-        <Button variant="primary" onClick={this.showModal} className="uploadButton">
-          Upload Data
-        </Button>
-        <Modal show={this.state.showModal} onHide={this.closeModal} onExited={this.resetModal} size="lg" centered>
-          <Modal.Header closeButton>
-            <Modal.Title>Upload Data</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {modalBody}
-          </Modal.Body>
-        </Modal>
-      </>
-    );
   }
 }
 
