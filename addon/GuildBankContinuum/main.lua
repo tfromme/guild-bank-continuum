@@ -5,6 +5,7 @@ local enabled = false      -- Addon Enabled for this toon
 local transactions = {}    -- Transactions tracked by incoming/outgoing mail
 local bags = {}            -- Items in bags
 local bank = nil           -- Items in bank
+local bankEventNum = 0;
 
 local currentSendMail = {} -- Temporary variable for current outgoing mail being edited
 
@@ -258,25 +259,31 @@ function GuildBankContinuum:BANKFRAME_CLOSED()
 end
 
 function GuildBankContinuum:GetBank()
-  bank = {}
+  bankEventNum = bankEventNum + 1;
+  if bankEventNum == 1 then
+    bank = {}
+ 
+    local bank_slots = {}
+    bank_slots[1] = BANK_CONTAINER
+    for container = NUM_BAG_SLOTS + 1, NUM_BAG_SLOTS + NUM_BANKBAGSLOTS do
+      bank_slots[#bank_slots + 1] = container
+    end
 
-  local bank_slots = {}
-  bank_slots[1] = BANK_CONTAINER
-  for container = NUM_BAG_SLOTS + 1, NUM_BAG_SLOTS + NUM_BANKBAGSLOTS do
-    bank_slots[#bank_slots + 1] = container
-  end
+    for _, container in ipairs(bank_slots) do
+      for slot = 1, GetContainerNumSlots(container) do
+        local _, count, _, _, _, _, _, _, _, itemId = GetContainerItemInfo(container, slot)
 
-  for _, container in ipairs(bank_slots) do
-    for slot = 1, GetContainerNumSlots(container) do
-      local _, count, _, _, _, _, _, _, _, itemId = GetContainerItemInfo(container, slot)
-
-      if count then -- Slot actually holds something
-        if bank[itemId] then
-          bank[itemId] = bank[itemId] + count
-        else
-          bank[itemId] = count
+        if count then -- Slot actually holds something
+          if bank[itemId] then
+            bank[itemId] = bank[itemId] + count
+          else
+            bank[itemId] = count
+          end
         end
       end
     end
   end
+  C_Timer.NewTimer(.5, function()
+    bankEventNum = 0
+  end)
 end

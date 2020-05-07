@@ -117,7 +117,7 @@ def addTransactions():
 @app.route('/getTransactions', methods=['GET'])
 def getTransactions():
     page = int(request.args.get('page', 1))
-    pageSize = int(request.args.get('pageSize', 5))
+    pageSize = int(request.args.get('pageSize', 20))
 
     with getDb() as db:
         transactions = {row['guid']: dict(row) for row in db.execute('SELECT * FROM transactions ORDER BY guid DESC LIMIT ?, ?', ((page - 1) * pageSize, pageSize))}
@@ -130,7 +130,7 @@ def getTransactions():
         transactionItems = [dict(row) for row in db.execute('SELECT * FROM TransactionItems WHERE transactionId IN ' + idList)]
 
         for item in transactionItems:
-            transactions[item['transactionId']]['items'][item['itemId']] = item['count']
+            transactions[item['transactionId']]['items'][item['itemId']] = {'count': item['count'], 'points': item['points']}
 
     return jsonify(transactions)
 
