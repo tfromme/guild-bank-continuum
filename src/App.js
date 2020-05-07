@@ -370,14 +370,12 @@ class MyModal extends React.Component {
     this.state = {
       showModal: false,
       submitted: false,
-      addonStringUploaded: false,
     };
 
     this.showModal = this.showModal.bind(this);
     this.closeModal = this.closeModal.bind(this);
     this.resetModal = this.resetModal.bind(this);
     this.setSubmitted = this.setSubmitted.bind(this);
-    this.setAddonStringUploaded = this.setAddonStringUploaded.bind(this);
   }
 
   showModal() {
@@ -389,7 +387,6 @@ class MyModal extends React.Component {
   }
 
   resetModal() {
-    this.setState({addonStringUploaded: false});
     if (this.state.submitted) {
       this.props.whenSaved();
     }
@@ -397,10 +394,6 @@ class MyModal extends React.Component {
 
   setSubmitted(value) {
     this.setState({submitted: value});
-  }
-
-  setAddonStringUploaded(value) {
-    this.setState({addonStringUploaded: value});
   }
 
   render() {
@@ -414,7 +407,9 @@ class MyModal extends React.Component {
             <Modal.Title>Upload Data</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <MyModalBody addonStringUploaded={this.state.addonStringUploaded} setAddonStringUploaded={this.setAddonStringUploaded} setSubmitted={this.setSubmitted}/>
+            <MyModalBody submitted={this.state.submitted}
+                         setSubmitted={this.setSubmitted}
+            />
           </Modal.Body>
         </Modal>
       </>
@@ -431,6 +426,7 @@ class MyModalBody extends React.Component {
       phaseTwo: false,
       loading: false,
       error: false,
+      parsedTransactions: "",
     };
 
     this.handleAddonStringChange = this.handleAddonStringChange.bind(this);
@@ -463,12 +459,13 @@ class MyModalBody extends React.Component {
   parseAddonString(e) {
     e.preventDefault();
     if (this.isValidJSON(this.state.addonString)) {
-      this.props.setAddonStringUploaded(true);
+      this.setState({phaseTwo: true});
       var json = JSON.parse(this.state.addonString);
       this.uploadStorageData(json);
       if (json['transactions'].length === 0) {
-        //TODO: Modify for phase 2
         this.props.setSubmitted(true);
+      } else {
+        this.setState({phaseTwo: true, parsedTransactions: json['transactions']});
       }
     } else {
       this.setState({validAddonString: false});
@@ -506,9 +503,11 @@ class MyModalBody extends React.Component {
       return "There was an error.  Please try again later.";
     } else if (this.state.loading) {
       return <Spinner animation="border" variant="primary" />
-    } else if (this.props.addonStringUploaded) {
-      return "Submitted";
-    } else {
+    } else if (this.props.submitted) {  // Submitted, can only exit
+      return "Submitted"
+    } else if (this.state.phaseTwo) {   // Phase Two on success of Storage upload
+      return <TransactionEditor setParentState={this.setState.bind(this)} initialTransactions={this.state.parsedTransactions} />
+    } else {                            // Phase One on open
       return (
         <Form validated={this.state.validAddonString} onSubmit={this.parseAddonString}>
           <Form.Group controlId="inputAddonString">
@@ -521,6 +520,108 @@ class MyModalBody extends React.Component {
       );
     }
   }
+}
+
+class TransactionEditor extends React.Component {
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      alts: {},
+      newAlts: {},
+      points: {},
+      ahValues: {},
+      transactions: {},
+      loading: false,
+    };
+  }
+
+  componentDidMount() {
+    this.setState({loading: true});
+
+    fetch('/getPlayers').then(res => res.json()).then(data => {
+      this.parsePlayers(data);
+    });
+
+    //fetch('https://api.nexushub.co/wow-classic/v1/items/sulfuras-alliance')
+    fetch('/getAhData')
+      .then(res => res.json()).then(data => {
+        this.parseAhValues(data);
+        this.setState({loading: false});
+    });
+
+    if ('initialTransactions' in this.props) {
+      this.parseInitial(this.props.initialTransactions);
+    }
+  }
+
+  parsePlayers(players) {
+    this.setState({alts: players['alts'], points: players['mains']});
+  }
+
+  parseAhValues(data) {
+    var items = {}
+    for (var index in data['data']) {
+      items[data['data'][index]['itemId']] = data['data'][index]['marketValue'];
+    }
+    this.setState({ahValues: items});
+  }
+
+  parseInitial(transactions) {
+    var parsedTransactions = {};
+    transactions.forEach((transaction, index) => {
+      var parsedTransaction = {
+        variant: 'parsed',
+        player: transaction['sender'],
+        items: {},
+      };
+      for (var itemId in transaction['items']) {
+        parsedTransaction['items'][itemId] = {'count': transaction['items'][itemId], 'points': 0};
+      }
+      if (Number(transaction['money']) > 0) {
+        parsedTransaction['items']['1'] = {'count': transaction['money'], 'points': 0};
+      }
+
+      parsedTransactions[index] = parsedTransaction;
+    });
+    this.setState({transactions: parsedTransactions});
+  }
+
+  handleCheck(index, e) {
+    console.log(index, e.target.checked)
+  }
+
+  render() {
+    if (this.state.loading) {
+      return <Spinner animation="border" variant="primary" />
+    }
+
+    var transactions = this.state.transactions;
+    var rowItems = [];
+    for (const index in transactions) {
+      var transaction = transactions[index];
+      rowItems.push(
+        <Form.Check key={index} type="checkbox" id={"editTransactionRowCheck" + index}>
+          <Form.Check.Input type="checkbox" onChange={(e) => this.handleCheck(index, e)} />
+          <Form.Check.Label>
+            <TransactionEditorRow editTransaction={(data) => this.editTransaction(index, data)} data={transaction} />
+          </Form.Check.Label>
+        </Form.Check>
+      );
+    }
+
+    return (
+      <Form onSubmit={(e) => e.preventDefault()}>
+        <Form.Group controlId="editTransactionRows">
+          {rowItems}
+        </Form.Group>
+      </Form>
+    );
+  }
+}
+
+function TransactionEditorRow(props) {
+  return "Row"
 }
 
 function capitalize(str) {

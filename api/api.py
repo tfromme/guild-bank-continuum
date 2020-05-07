@@ -9,6 +9,13 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 
+@app.route('/getAhData', methods=['GET'])
+def getAhData():
+    url = 'https://api.nexushub.co/wow-classic/v1/items/sulfuras-alliance'
+    data = requests.get(url).json()
+    return jsonify(data)
+
+
 @app.route('/getPlayers', methods=['GET'])
 def getPlayers():
     with getDb() as db:
