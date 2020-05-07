@@ -9,3 +9,4 @@ if __name__ == '__main__':
     c.execute('CREATE TABLE transactions (guid integer primary key, character text, date integer, money integer, type text)')
     c.execute('CREATE TABLE transactionItems (guid integer primary key, transactionId integer, itemId integer, count integer, points real, FOREIGN KEY(transactionId) REFERENCES transactions(guid))')
     c.execute('CREATE TABLE players (guid integer primary key, name text UNIQUE, mainId integer, points real)')
+    c.execute('INSERT INTO items VALUES(1, "Gold")')

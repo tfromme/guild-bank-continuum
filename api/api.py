@@ -28,7 +28,7 @@ def getPlayers():
 
 @app.route('/setPoints', methods=['POST'])
 def setPoints():
-    data = json.loads(request.form['points'])
+    data = request.get_json()['points']
     with getDb() as db:
         playercache = [row['name'] for row in db.execute('SELECT * FROM players')]
         for player, points in data.items():
@@ -42,7 +42,7 @@ def setPoints():
 
 @app.route('/addAlts', methods=['POST'])
 def addAlts():
-    data = json.loads(request.form['alts'])
+    data = request.get_json()['alts']
     with getDb() as db:
         playercache = {row['name']: row['guid'] for row in db.execute('SELECT * FROM players')}
         for alt, main in data.items():
@@ -65,9 +65,10 @@ def getStorage():
 
 @app.route('/updateStorage', methods=['POST'])
 def updateStorage():
-    bags = json.loads(request.form['bags'])
-    bank = json.loads(request.form['bank']) if 'bank' in request.form else None
-    character = request.form['character']
+    data = request.get_json()
+    bags = data['bags']
+    bank = data.get('bank', None)
+    character = data['character']
 
     with getDb() as db:
         if bank is None:
@@ -99,7 +100,7 @@ def getItems():
 
 @app.route('/addTransactions', methods=['POST'])
 def addTransactions():
-    transactions = json.loads(request.form['transactions'])
+    transactions = request.get_json()['transactions']
     today = int(datetime.date.today().strftime('%y%m%d'))
     with getDb() as db:
         cachedItems = [int(row['itemId']) for row in db.execute('SELECT (itemId) FROM items')]
