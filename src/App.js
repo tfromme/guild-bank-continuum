@@ -15,7 +15,7 @@ class App extends React.Component {
   // Easy way to update all data with the new info
   // and not have to code it myself
   modalSaved() {
-    this.forceUpdate();
+    window.location.reload(false);
   }
 
   render() {
@@ -366,7 +366,7 @@ class MyModal extends React.Component {
   // Props has whenSaved - call to reload UI
   constructor(props) {
     super(props);
-    this.state = {showModal: false, addonString: "", addonStringUploaded: false};
+    this.state = {showModal: false, addonString: "", validAddonString: true, addonStringUploaded: false, submitted: false};
 
     this.showModal = this.showModal.bind(this);
     this.closeModal = this.closeModal.bind(this);
@@ -385,16 +385,43 @@ class MyModal extends React.Component {
 
   resetModal() {
     this.setState({addonStringUploaded: false});
+    if (this.state.submitted) {
+      this.props.whenSaved();
+    }
   }
 
   handleTextChange(e) {
     this.setState({addonString: e.target.value});
+    if (this.isValidJSON(e.target.value)) {
+      this.setState({validAddonString: true});
+    }
+  }
+
+  isValidJSON(str) {
+    try {
+      var json = JSON.parse(str);
+    } catch (e) {
+      return false;
+    }
+    if (typeof json !== 'object') {
+      return false;
+    }
+    return (json.hasOwnProperty('transactions')
+         && json.hasOwnProperty('bags')
+         && json.hasOwnProperty('bank')
+         && json.hasOwnProperty('money')
+         && json.hasOwnProperty('character'));
   }
 
   parseAddonString(e) {
     e.preventDefault();
-    console.log(this.state.addonString);
-    this.setState({addonStringUploaded: true});
+    if (this.isValidJSON(this.state.addonString)) {
+      console.log(this.state.addonString);
+      this.setState({addonStringUploaded: true});
+      this.setState({submitted: true});
+    } else {
+      this.setState({validAddonString: false});
+    }
   }
 
   render() {
@@ -402,10 +429,11 @@ class MyModal extends React.Component {
       var modalBody = "Submitted";
     } else {
       modalBody = (
-        <Form onSubmit={this.parseAddonString}>
+        <Form validated={this.state.validAddonString} onSubmit={this.parseAddonString}>
           <Form.Group controlId="inputAddonString">
             <Form.Label>Paste Addon String Below</Form.Label>
-            <Form.Control as="textarea" rows="5" onChange={this.handleTextChange} />
+            <Form.Control as="textarea" rows="5" onChange={this.handleTextChange} isInvalid={!this.state.validAddonString}/>
+            <Form.Control.Feedback type="invalid">Invalid Addon String</Form.Control.Feedback>
           </Form.Group>
           <Button type="submit">Upload</Button>
         </Form>
