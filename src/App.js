@@ -1,5 +1,6 @@
 import React from 'react';
 
+import Col from 'react-bootstrap/Col';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Form from 'react-bootstrap/Form';
@@ -402,7 +403,7 @@ class MyModal extends React.Component {
         <Button variant="primary" onClick={this.showModal} className="uploadButton">
           Upload Data
         </Button>
-        <Modal show={this.state.showModal} onHide={this.closeModal} onExited={this.resetModal} size="lg" centered scrollable>
+        <Modal show={this.state.showModal} onHide={this.closeModal} onExited={this.resetModal} dialogClassName="modal-xl" centered scrollable>
           <Modal.Header closeButton>
             <Modal.Title>Upload Data</Modal.Title>
           </Modal.Header>
@@ -649,7 +650,7 @@ class TransactionEditor extends React.Component {
         <Form.Check key={index} type="checkbox" id={"editTransactionRowCheck" + index}>
           <Form.Check.Input type="checkbox" onChange={(e) => this.handleCheck(index, e)} />
           <Form.Check.Label>
-            <TransactionEditorRow editTransaction={(data) => this.editTransaction(index, data)} data={transaction} />
+            <TransactionEditorRow index={index} editTransaction={(data) => this.editTransaction(index, data)} data={transaction} />
           </Form.Check.Label>
         </Form.Check>
       );
@@ -679,11 +680,87 @@ class TransactionEditorRow extends React.Component {
   }
 
   render() {
-    if (this.props.data.checked) {
-      return <div class="transactionEditorRow">Checked</div>
-    } else {
-      return <div class="transactionEditorRow">Unchecked</div>
-    }
+    const typeDisplay = {
+      'donation': 'Donation/Withdrawal',
+      'raidloot': 'Raid Loot',
+      'investment': 'Investment',
+      'guild': 'Guild Benefit',
+      'crafting': 'Crafting',
+    };
+
+    return (
+      <div className="transactionEditorRow">
+        <Form>
+          <Form.Row>
+
+            <Form.Group as={Col} xs="2" controlId={"transactionEditName"+this.props.index}>
+              <Form.Label><b>Player</b></Form.Label>
+              <Form.Control plaintext readOnly defaultValue={this.props.data.player} />
+            </Form.Group>
+
+            <Form.Group as={Col} controlId={"transactionEditType"+this.props.index}>
+              <Form.Label><b>Type</b></Form.Label>
+              <Form.Control as="select" value={typeDisplay[this.props.data.type]}>
+                {Object.keys(typeDisplay).map((key, index) =>
+                  <option key={index}>{typeDisplay[key]}</option>
+                )}
+              </Form.Control>
+            </Form.Group>
+
+            <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
+              <Form.Label><b>Item Name</b></Form.Label>
+              <Form.Control type="text" defaultValue="testName" />
+            </Form.Group>
+
+            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
+              <Form.Label><b>In</b></Form.Label>
+              <Form.Control type="text" defaultValue="testIn" />
+            </Form.Group>
+
+            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
+              <Form.Label><b>Out</b></Form.Label>
+              <Form.Control type="text" defaultValue="testOut" />
+            </Form.Group>
+
+            <Form.Group as={Col} controlId={"tranactionEditItem0Value"+this.props.index}>
+              <Form.Label><b>Value</b></Form.Label>
+              <Form.Control type="text" defaultValue="1g2s5c" />
+            </Form.Group>
+
+            <Col xs="1">
+              <Form.Label style={{'color': 'white'}}><b>X</b></Form.Label>
+              <div><Button variant="outline-danger">X</Button></div>
+            </Col>
+
+          </Form.Row>
+          <Form.Row>
+            <Col xs="2" />
+            <Col />
+            <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
+              <Form.Control type="text" defaultValue="testName" />
+            </Form.Group>
+
+            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
+              <Form.Control type="text" defaultValue="testIn" />
+            </Form.Group>
+
+            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
+              <Form.Control type="text" defaultValue="testOut" />
+            </Form.Group>
+
+            <Form.Group as={Col} controlId={"tranactionEditItem0Value"+this.props.index}>
+              <Form.Control type="text" defaultValue="1g2s5c" />
+            </Form.Group>
+
+            <Col xs="1">
+              <Button variant="outline-danger">X</Button>
+            </Col>
+
+          </Form.Row>
+
+        </Form>
+      </div>
+    );
   }
 }
 

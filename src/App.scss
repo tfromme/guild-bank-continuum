@@ -54,15 +54,23 @@ table {
   color: #bf7037;
 }
 
+.modal-xl {
+  max-width: 1100px;
+}
+
 .transactionEditorRow {
   border: .2rem solid #ececec;
   border-radius: 8px;
   margin-bottom: 5px;
-  padding: 0px 2px 0px 2px;
+  padding: 0px 5px 0px 5px;
 }
 
 .form-check-input {
   margin-top: .5rem;
+}
+
+.form-group {
+  margin-bottom: .5rem;
 }
 
 .addTransactionButton {
