@@ -402,7 +402,7 @@ class MyModal extends React.Component {
         <Button variant="primary" onClick={this.showModal} className="uploadButton">
           Upload Data
         </Button>
-        <Modal show={this.state.showModal} onHide={this.closeModal} onExited={this.resetModal} size="lg" centered>
+        <Modal show={this.state.showModal} onHide={this.closeModal} onExited={this.resetModal} size="lg" centered scrollable>
           <Modal.Header closeButton>
             <Modal.Title>Upload Data</Modal.Title>
           </Modal.Header>
@@ -534,6 +534,8 @@ class TransactionEditor extends React.Component {
       transactions: {},
       loading: false,
     };
+
+    this.addTransaction = this.addTransaction.bind(this);
   }
 
   componentDidMount() {
@@ -543,6 +545,7 @@ class TransactionEditor extends React.Component {
       this.parsePlayers(data);
     });
 
+    //TODO: Update when/if nexushub fixes cors header on api
     //fetch('https://api.nexushub.co/wow-classic/v1/items/sulfuras-alliance')
     fetch('/getAhData')
       .then(res => res.json()).then(data => {
@@ -561,10 +564,22 @@ class TransactionEditor extends React.Component {
 
   parseAhValues(data) {
     var items = {}
-    for (var index in data['data']) {
-      items[data['data'][index]['itemId']] = data['data'][index]['marketValue'];
+    for (const index in data['data']) {
+      items[data['data'][index]['itemId']] = parseInt(data['data'][index]['marketValue']);
     }
-    this.setState({ahValues: items});
+
+    this.setState((state, props) => {
+      var transactions = state.transactions;
+      for (const index in transactions) {
+        for (const itemId in transactions[index]['items']) {
+          if (itemId !== '1') {  // Special case for Gold
+            transactions[index]['items'][itemId]['points'] = transactions[index]['items'][itemId]['count'] * items[itemId]
+          }
+        }
+      }
+
+      return {ahValues: items, transactions:transactions};
+    });
   }
 
   parseInitial(transactions) {
@@ -572,14 +587,16 @@ class TransactionEditor extends React.Component {
     transactions.forEach((transaction, index) => {
       var parsedTransaction = {
         variant: 'parsed',
+        checked: false,
         player: transaction['sender'],
+        type: 'donation',
         items: {},
       };
-      for (var itemId in transaction['items']) {
-        parsedTransaction['items'][itemId] = {'count': transaction['items'][itemId], 'points': 0};
+      for (const itemId in transaction['items']) {
+        parsedTransaction['items'][itemId] = {'count': parseInt(transaction['items'][itemId]), 'points': 0};
       }
       if (Number(transaction['money']) > 0) {
-        parsedTransaction['items']['1'] = {'count': transaction['money'], 'points': 0};
+        parsedTransaction['items']['1'] = {'count': parseInt(transaction['money']), 'points': parseInt(transaction['money'])};
       }
 
       parsedTransactions[index] = parsedTransaction;
@@ -587,8 +604,36 @@ class TransactionEditor extends React.Component {
     this.setState({transactions: parsedTransactions});
   }
 
+  addTransaction() {
+    this.setState((state, props) => {
+      var transactions = state.transactions;
+      var maxIndex = Object.keys(transactions).reduce((a, b) => parseInt(a) > parseInt(b) ? a : b);
+      transactions[parseInt(maxIndex) + 1] = {
+        variant: 'manual',
+        checked: false,
+        player: '',
+        type: 'donation',
+        items: {},
+      }
+      return {transactions: transactions};
+    });
+  }
+
+  editTransaction(index, data) {
+    this.setState((state, props) => {
+      var transactions = state.transactions;
+      transactions[index] = data;
+      return {transactions: transactions};
+    });
+  }
+
   handleCheck(index, e) {
-    console.log(index, e.target.checked)
+    const checked = e.target.checked;
+    this.setState((state, props) => {
+      var transactions = state.transactions;
+      transactions[index]['checked'] = checked;
+      return {transactions: transactions};
+    });
   }
 
   render() {
@@ -611,17 +656,35 @@ class TransactionEditor extends React.Component {
     }
 
     return (
-      <Form onSubmit={(e) => e.preventDefault()}>
-        <Form.Group controlId="editTransactionRows">
-          {rowItems}
-        </Form.Group>
-      </Form>
+      <>
+        <Form onSubmit={(e) => e.preventDefault()}>
+          <Form.Group controlId="editTransactionRows">
+            {rowItems}
+          </Form.Group>
+        </Form>
+        <Button variant="outline-info" onClick={this.addTransaction} className="addTransactionButton">
+          Add More
+        </Button>
+      </>
     );
   }
 }
 
-function TransactionEditorRow(props) {
-  return "Row"
+
+class TransactionEditorRow extends React.Component {
+
+  constructor(props) {
+    super(props)
+    this.state = {}
+  }
+
+  render() {
+    if (this.props.data.checked) {
+      return <div class="transactionEditorRow">Checked</div>
+    } else {
+      return <div class="transactionEditorRow">Unchecked</div>
+    }
+  }
 }
 
 function capitalize(str) {
