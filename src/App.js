@@ -14,10 +14,25 @@ import './App.scss';
 
 class App extends React.Component {
 
+  constructor(props) {
+    super(props);
+    this.state = {items: [], players: {}};
+  }
+
   // Easy way to update all data with the new info
   // and not have to code it myself
   modalSaved() {
     window.location.reload(false);
+  }
+
+  componentDidMount() {
+    fetch('/getItems').then(res => res.json()).then(data => {
+      this.setState({items: data})
+    });
+
+    fetch('/getPlayers').then(res => res.json()).then(data => {
+      this.setState({players: data})
+    });
   }
 
   render() {
@@ -28,13 +43,13 @@ class App extends React.Component {
           <span>Welcome to the Continuum Guild Bank</span>
         </div>
         <div>
-          <MyModal whenSaved={this.modalSaved}/>
+          <MyModal whenSaved={this.modalSaved} items={this.state.items} />
           <Tabs defaultActiveKey="storage" transition={false}>
             <Tab eventKey="storage" title="Storage">
-              <StorageTable />
+              <StorageTable items={this.state.items} />
             </Tab>
             <Tab eventKey="players" title="Player Points">
-              <PlayerTable />
+              <PlayerTable players={this.state.players} />
             </Tab>
             <Tab eventKey="transactions" title="Transactions">
               <TransactionTable />
@@ -179,26 +194,9 @@ class TransactionTable extends React.Component {
 
 
 class PlayerTable extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {players: {}};
-  }
-
-  componentDidMount() {
-    fetch('/getPlayers').then(res => res.json()).then(data => {
-      this.parsePlayers(data);
-    });
-  }
-
-  parsePlayers(data) {
-    this.setState({
-      players: data.mains
-    });
-  }
-
   playersToRows() {
     var rows = [];
-    var players = this.state.players;
+    var players = this.props.players.mains;
     for (var playerName in players) {
       var row = [
         capitalize(playerName),
@@ -244,14 +242,10 @@ class PlayerTable extends React.Component {
 class StorageTable extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {items: {}, storage: {}};
+    this.state = {storage: {}};
   }
 
   componentDidMount() {
-    fetch('/getItems').then(res => res.json()).then(data => {
-      this.parseItems(data);
-    });
-
     fetch('/getStorage').then(res => res.json()).then(data => {
       this.parseStorage(data);
     });
@@ -262,12 +256,10 @@ class StorageTable extends React.Component {
   }
 
   parseItems(data) {
-    this.setState({
-      items: data.reduce((acc, cur) => {
-        acc[cur.itemId] = cur.name;
-        return acc;
-      }, {})
-    });
+    return data.reduce((acc, cur) => {
+      acc[cur.itemId] = cur.name;
+      return acc;
+    }, {});
   }
 
   parseStorage(data) {
@@ -277,7 +269,7 @@ class StorageTable extends React.Component {
   storageToRows() {
     var rows = [];
     var storage = this.state.storage;
-    var items = this.state.items;
+    var items = this.parseItems(this.props.items);
     for (var itemId in storage) {
       var row = [
         <a href={"https://classic.wowhead.com/item=" + itemId} data-wh-rename-link="false">{items[itemId] || 'Unknown'}</a>,
@@ -410,6 +402,7 @@ class MyModal extends React.Component {
           <Modal.Body>
             <MyModalBody submitted={this.state.submitted}
                          setSubmitted={this.setSubmitted}
+                         items={this.props.items}
             />
           </Modal.Body>
         </Modal>
@@ -507,7 +500,10 @@ class MyModalBody extends React.Component {
     } else if (this.props.submitted) {  // Submitted, can only exit
       return "Submitted"
     } else if (this.state.phaseTwo) {   // Phase Two on success of Storage upload
-      return <TransactionEditor setParentState={this.setState.bind(this)} initialTransactions={this.state.parsedTransactions} />
+      return <TransactionEditor setParentState={this.setState.bind(this)}
+                                initialTransactions={this.state.parsedTransactions}
+                                items={this.props.items}
+             />
     } else {                            // Phase One on open
       return (
         <Form validated={this.state.validAddonString} onSubmit={this.parseAddonString}>
@@ -568,7 +564,7 @@ class TransactionEditor extends React.Component {
     }
 
     this.setState((state, props) => {
-      var transactions = state.transactions;
+      var transactions = { ...state.transactions };
       for (const index in transactions) {
         for (const itemId in transactions[index]['items']) {
           if (itemId !== '1') {  // Special case for Gold
@@ -604,8 +600,10 @@ class TransactionEditor extends React.Component {
   }
 
   addTransaction() {
+    console.log('Called');
     this.setState((state, props) => {
-      var transactions = state.transactions;
+      var transactions = { ...state.transactions };
+      console.log(transactions);
       var maxIndex = Object.keys(transactions).reduce((a, b) => parseInt(a) > parseInt(b) ? a : b);
       transactions[parseInt(maxIndex) + 1] = {
         variant: 'manual',
@@ -614,13 +612,14 @@ class TransactionEditor extends React.Component {
         type: 'donation',
         items: {},
       }
+      console.log(transactions);
       return {transactions: transactions};
     });
   }
 
   editTransaction(index, data) {
     this.setState((state, props) => {
-      var transactions = state.transactions;
+      var transactions = { ...state.transactions };
       transactions[index] = data;
       return {transactions: transactions};
     });
@@ -629,7 +628,7 @@ class TransactionEditor extends React.Component {
   handleCheck(index, e) {
     const checked = e.target.checked;
     this.setState((state, props) => {
-      var transactions = state.transactions;
+      var transactions = { ...state.transactions };
       transactions[index]['checked'] = checked;
       return {transactions: transactions};
     });
@@ -648,7 +647,11 @@ class TransactionEditor extends React.Component {
         <Form.Check key={index} type="checkbox" id={"editTransactionRowCheck" + index}>
           <Form.Check.Input type="checkbox" onChange={(e) => this.handleCheck(index, e)} />
           <Form.Check.Label>
-            <TransactionEditorRow index={index} editTransaction={(data) => this.editTransaction(index, data)} data={transaction} />
+            <TransactionEditorRow index={index}
+                                  editTransaction={(data) => this.editTransaction(index, data)}
+                                  data={transaction}
+                                  items={this.props.items}
+            />
           </Form.Check.Label>
         </Form.Check>
       );
@@ -688,75 +691,72 @@ class TransactionEditorRow extends React.Component {
 
     return (
       <div className="transactionEditorRow">
-        <Form>
-          <Form.Row>
+        <Form.Row>
 
-            <Form.Group as={Col} xs="2" controlId={"transactionEditName"+this.props.index}>
-              <Form.Label><b>Player</b></Form.Label>
-              <Form.Control plaintext readOnly defaultValue={this.props.data.player} />
-            </Form.Group>
+          <Form.Group as={Col} controlId={"transactionEditName"+this.props.index}>
+            <Form.Label><b>Player</b></Form.Label>
+            <Form.Control plaintext readOnly defaultValue={this.props.data.player} />
+          </Form.Group>
 
-            <Form.Group as={Col} controlId={"transactionEditType"+this.props.index}>
-              <Form.Label><b>Type</b></Form.Label>
-              <Form.Control as="select" value={typeDisplay[this.props.data.type]}>
-                {Object.keys(typeDisplay).map((key, index) =>
-                  <option key={index}>{typeDisplay[key]}</option>
-                )}
-              </Form.Control>
-            </Form.Group>
+          <Form.Group as={Col} controlId={"transactionEditType"+this.props.index}>
+            <Form.Label><b>Type</b></Form.Label>
+            <Form.Control as="select" value={typeDisplay[this.props.data.type]}>
+              {Object.keys(typeDisplay).map((key, index) =>
+                <option key={index}>{typeDisplay[key]}</option>
+              )}
+            </Form.Control>
+          </Form.Group>
 
-            <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
-              <Form.Label><b>Item Name</b></Form.Label>
-              <Form.Control type="text" defaultValue="testName" />
-            </Form.Group>
+          <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
+            <Form.Label><b>Item Name</b></Form.Label>
+            <Form.Control type="text" defaultValue="testName" />
+          </Form.Group>
 
-            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
-              <Form.Label><b>In</b></Form.Label>
-              <Form.Control type="text" defaultValue="testIn" />
-            </Form.Group>
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
+            <Form.Label><b>In</b></Form.Label>
+            <Form.Control type="text" defaultValue="testIn" />
+          </Form.Group>
 
-            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
-              <Form.Label><b>Out</b></Form.Label>
-              <Form.Control type="text" defaultValue="testOut" />
-            </Form.Group>
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
+            <Form.Label><b>Out</b></Form.Label>
+            <Form.Control type="text" defaultValue="testOut" />
+          </Form.Group>
 
-            <Form.Group as={Col} controlId={"tranactionEditItem0Value"+this.props.index}>
-              <Form.Label><b>Value</b></Form.Label>
-              <Form.Control type="text" defaultValue="1g2s5c" />
-            </Form.Group>
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Value"+this.props.index}>
+            <Form.Label><b>Value</b></Form.Label>
+            <Form.Control type="text" defaultValue="1.5" />
+          </Form.Group>
 
-            <Col xs="1">
-              <Form.Label style={{'color': 'white'}}><b>X</b></Form.Label>
-              <div><Button variant="outline-danger">X</Button></div>
-            </Col>
+          <Col xs="1">
+            <Form.Label style={{'color': 'white'}}><b>X</b></Form.Label>
+            <div><Button variant="outline-danger">X</Button></div>
+          </Col>
 
-          </Form.Row>
-          <Form.Row>
-            <Col xs="2" />
-            <Col />
-            <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
-              <Form.Control type="text" defaultValue="testName" />
-            </Form.Group>
+        </Form.Row>
+        <Form.Row>
+          <Col />
+          <Col />
+          <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
+            <Form.Control type="text" defaultValue="testName" />
+          </Form.Group>
 
-            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
-              <Form.Control type="text" defaultValue="testIn" />
-            </Form.Group>
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
+            <Form.Control type="text" defaultValue="testIn" />
+          </Form.Group>
 
-            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
-              <Form.Control type="text" defaultValue="testOut" />
-            </Form.Group>
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
+            <Form.Control type="text" defaultValue="testOut" />
+          </Form.Group>
 
-            <Form.Group as={Col} controlId={"tranactionEditItem0Value"+this.props.index}>
-              <Form.Control type="text" defaultValue="1g2s5c" />
-            </Form.Group>
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Value"+this.props.index}>
+            <Form.Control type="text" defaultValue="1.25" />
+          </Form.Group>
 
-            <Col xs="1">
-              <Button variant="outline-danger">X</Button>
-            </Col>
+          <Col xs="1">
+            <Button variant="outline-danger">X</Button>
+          </Col>
 
-          </Form.Row>
-
-        </Form>
+        </Form.Row>
       </div>
     );
   }
