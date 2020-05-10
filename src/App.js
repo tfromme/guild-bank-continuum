@@ -546,9 +546,7 @@ class TransactionEditor extends React.Component {
       this.parsePlayers(data);
     });
 
-    //TODO: Update when/if nexushub fixes cors header on api
-    //fetch('https://api.nexushub.co/wow-classic/v1/items/sulfuras-alliance')
-    fetch('/getAhData')
+    fetch('https://api.nexushub.co/wow-classic/v1/items/sulfuras-alliance')
       .then(res => res.json()).then(data => {
         this.parseAhValues(data);
         this.setState({loading: false});

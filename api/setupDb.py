@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 if __name__ == '__main__':
@@ -10,3 +11,12 @@ if __name__ == '__main__':
     c.execute('CREATE TABLE transactionItems (guid integer primary key, transactionId integer, itemId integer, count integer, points real, FOREIGN KEY(transactionId) REFERENCES transactions(guid))')
     c.execute('CREATE TABLE players (guid integer primary key, name text UNIQUE, mainId integer, points real)')
     c.execute('INSERT INTO items VALUES(1, "Gold")')
+
+    with open('items.json') as f:
+        item_dict = json.loads(f.read())
+
+    for itemId, itemName in item_dict.items():
+        c.execute('INSERT INTO items VALUES (?, ?)', (itemId, itemName))
+
+    conn.commit()
+    conn.close()

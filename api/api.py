@@ -1,19 +1,9 @@
-import json
 import sqlite3
 import datetime
 from contextlib import contextmanager
 
-import requests
-import xmltodict
 from flask import Flask, request, jsonify
 app = Flask(__name__)
-
-
-@app.route('/getAhData', methods=['GET'])
-def getAhData():
-    url = 'https://api.nexushub.co/wow-classic/v1/items/sulfuras-alliance'
-    data = requests.get(url).json()
-    return jsonify(data)
 
 
 @app.route('/getPlayers', methods=['GET'])
@@ -83,18 +73,12 @@ def updateStorage():
         else:
             db.execute('DELETE FROM storage WHERE character=?', (character,))
 
-        cachedItems = [int(row['itemId']) for row in db.execute('SELECT (itemId) FROM items')]
-
         for itemId, count in bags.items():
             db.execute('INSERT INTO storage (itemId, count, location, character) values (?, ?, ?, ?)', (itemId, count, 'bags', character))
-            if int(itemId) not in cachedItems:
-                db.execute('INSERT OR IGNORE INTO items VALUES (?, ?)', (itemId, getItemName(itemId)))
 
         if bank is not None:
             for itemId, count in bank.items():
                 db.execute('INSERT INTO storage (itemId, count, location, character) values (?, ?, ?, ?)', (itemId, count, 'bank', character))
-                if int(itemId) not in cachedItems:
-                    db.execute('INSERT OR IGNORE INTO items VALUES (?, ?)', (itemId, getItemName(itemId)))
 
     return '', 204
 
@@ -110,14 +94,11 @@ def addTransactions():
     transactions = request.get_json()['transactions']
     today = int(datetime.date.today().strftime('%y%m%d'))
     with getDb() as db:
-        cachedItems = [int(row['itemId']) for row in db.execute('SELECT (itemId) FROM items')]
         for transaction in transactions:
             db.execute('INSERT INTO transactions (character, date, money, type) VALUES (?, ?, ?, ?)', (transaction['sender'], today, transaction['money'], transaction.get('type', 'test')))
             transactionId = db.lastrowid
             for itemId, count in transaction['items'].items():
                 db.execute('INSERT INTO transactionItems (transactionId, itemId, count) values (?, ?, ?)', (transactionId, itemId, count))
-                if int(itemId) not in cachedItems:
-                    db.execute('INSERT OR IGNORE INTO items VALUES (?, ?)', (itemId, getItemName(itemId)))
 
     return '', 204
 
@@ -153,9 +134,3 @@ def getDb():
         conn.commit()
     finally:
         conn.close()
-
-
-def getItemName(item_id):
-    url = f"https://classic.wowhead.com/item={item_id}&xml"
-    data = xmltodict.parse(requests.get(url).text)
-    return data['wowhead']['item']['name']
