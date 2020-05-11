@@ -11,6 +11,7 @@ if __name__ == '__main__':
     c.execute('CREATE TABLE transactionItems (guid integer primary key, transactionId integer, itemId integer, count integer, points real, FOREIGN KEY(transactionId) REFERENCES transactions(guid))')
     c.execute('CREATE TABLE players (guid integer primary key, name text UNIQUE, mainId integer, points real)')
     c.execute('INSERT INTO items VALUES(1, "Gold")')
+    c.execute('INSERT INTO items VALUES(6948, "Hearthstone")')
 
     with open('items.json') as f:
         item_dict = json.loads(f.read())

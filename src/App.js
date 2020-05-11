@@ -77,7 +77,9 @@ class TransactionTable extends React.Component {
   }
 
   componentDidUpdate() {
-    window.$WowheadPower.refreshLinks();
+    sleep(150).then(() => {
+      window.$WowheadPower.refreshLinks();
+    });
   }
 
   loadMore(e) {
@@ -130,7 +132,7 @@ class TransactionTable extends React.Component {
       ];
 
       if (Number(transaction['money']) > 0) {
-        row[3].push(<a href="https://wowhead.com/item=92600" className="q1" data-wh-rename-link="false" data-wh-icon-size="tiny">Gold</a>);
+        row[3].push(<a href="https://wowhead.com/item=92600" className="q1" data-wh-icon-size="tiny">Gold</a>);
         row[4].push(parseGold(transaction['money']));
         row[5].push('');
         row[6].push(transaction['money'] / 10000);
@@ -144,7 +146,7 @@ class TransactionTable extends React.Component {
       for (var itemId in transaction['items']) {
         var count = transaction['items'][itemId]['count'];
         var points = transaction['items'][itemId]['points'];
-        row[3].push(<a href={"https://classic.wowhead.com/item=" + itemId} data-wh-icon-size="tiny"> </a>);
+        row[3].push(<a href={"https://classic.wowhead.com/item=" + itemId} data-wh-rename-link="true" data-wh-icon-size="tiny"> </a>);
         row[6].push(points);
         if (count > 0) {
           row[4].push(count);
@@ -252,7 +254,9 @@ class StorageTable extends React.Component {
   }
 
   componentDidUpdate() {
-    window.$WowheadPower.refreshLinks();
+    sleep(150).then(() => {
+      window.$WowheadPower.refreshLinks();
+    });
   }
 
   parseItems(data) {
@@ -272,14 +276,14 @@ class StorageTable extends React.Component {
     var items = this.parseItems(this.props.items);
     for (var itemId in storage) {
       var row = [
-        <a href={"https://classic.wowhead.com/item=" + itemId} data-wh-rename-link="false">{items[itemId] || 'Unknown'}</a>,
+        <a href={"https://classic.wowhead.com/item=" + itemId}><span>{items[itemId] || 'Unknown'}</span></a>,
         [],  // Quantity
         [],  // Character
         items[itemId] || '',
       ];
 
       if (Number(itemId) === 1) {
-        row[0] = <a href="https://wowhead.com/item=92600" className="q1" data-wh-rename-link="false">Gold</a>;
+        row[0] = <a href="https://wowhead.com/item=92600" className="q1">Gold</a>;
         row[3] = 'Gold';
 
         for (var charName in storage[itemId]) {
@@ -760,6 +764,10 @@ class TransactionEditorRow extends React.Component {
       </div>
     );
   }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function capitalize(str) {
