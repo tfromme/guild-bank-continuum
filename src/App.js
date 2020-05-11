@@ -8,6 +8,7 @@ import Modal from 'react-bootstrap/Modal';
 import Table from 'react-bootstrap/Table';
 import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
+import {Typeahead} from 'react-bootstrap-typeahead';
 
 import wowlogo from './wowlogo.png';
 import './App.scss';
@@ -276,7 +277,7 @@ class StorageTable extends React.Component {
     var items = this.parseItems(this.props.items);
     for (var itemId in storage) {
       var row = [
-        <a href={"https://classic.wowhead.com/item=" + itemId}><span>{items[itemId] || 'Unknown'}</span></a>,
+        <a href={"https://classic.wowhead.com/item=" + itemId}>{items[itemId] || 'Unknown'}</a>,
         [],  // Quantity
         [],  // Character
         items[itemId] || '',
@@ -564,15 +565,16 @@ class TransactionEditor extends React.Component {
   parseAhValues(data) {
     var items = {}
     for (const index in data['data']) {
-      items[data['data'][index]['itemId']] = parseInt(data['data'][index]['marketValue']);
+      items[data['data'][index]['itemId']] = parseInt(data['data'][index]['marketValue']) / 10000;
     }
 
     this.setState((state, props) => {
       var transactions = { ...state.transactions };
       for (const index in transactions) {
-        for (const itemId in transactions[index]['items']) {
-          if (itemId !== '1') {  // Special case for Gold
-            transactions[index]['items'][itemId]['points'] = transactions[index]['items'][itemId]['count'] * items[itemId]
+        for (const item of transactions[index]['items']) {
+          if (item.itemId !== '1') {  // Special case for Gold
+            var count = item.incount + item.outcount;
+            item.points = count * items[item.itemId]
           }
         }
       }
@@ -581,7 +583,15 @@ class TransactionEditor extends React.Component {
     });
   }
 
+  parseItems(data) {
+    return data.reduce((acc, cur) => {
+      acc[cur.itemId] = cur.name;
+      return acc;
+    }, {});
+  }
+
   parseInitial(transactions) {
+    var itemNames = this.parseItems(this.props.items);
     var parsedTransactions = {};
     transactions.forEach((transaction, index) => {
       var parsedTransaction = {
@@ -589,13 +599,27 @@ class TransactionEditor extends React.Component {
         checked: false,
         player: transaction['sender'],
         type: 'donation',
-        items: {},
+        items: [],
       };
-      for (const itemId in transaction['items']) {
-        parsedTransaction['items'][itemId] = {'count': parseInt(transaction['items'][itemId]), 'points': 0};
+      if (Number(transaction['money']) !== 0) {
+        var money = parseInt(transaction['money']) / 10000;
+        parsedTransaction['items'].push({
+          'itemId': '1',
+          'incount': money > 0 ? money : 0,
+          'outcount': money < 0 ? -money : 0,
+          'points': Math.abs(money),
+          'name': 'Gold',
+        });
       }
-      if (Number(transaction['money']) > 0) {
-        parsedTransaction['items']['1'] = {'count': parseInt(transaction['money']), 'points': parseInt(transaction['money'])};
+      for (const itemId in transaction['items']) {
+        var count = parseInt(transaction['items'][itemId]);
+        parsedTransaction['items'].push({
+          'itemId': itemId,
+          'incount': count > 0 ? count : 0,
+          'outcount': count < 0 ? -count : 0,
+          'points': 0,
+          'name': itemNames[itemId],
+        });
       }
 
       parsedTransactions[index] = parsedTransaction;
@@ -604,7 +628,6 @@ class TransactionEditor extends React.Component {
   }
 
   addTransaction() {
-    console.log('Called');
     this.setState((state, props) => {
       var transactions = { ...state.transactions };
       console.log(transactions);
@@ -614,7 +637,7 @@ class TransactionEditor extends React.Component {
         checked: false,
         player: '',
         type: 'donation',
-        items: {},
+        items: [],
       }
       console.log(transactions);
       return {transactions: transactions};
@@ -650,13 +673,12 @@ class TransactionEditor extends React.Component {
       rowItems.push(
         <Form.Check key={index} type="checkbox" id={"editTransactionRowCheck" + index}>
           <Form.Check.Input type="checkbox" onChange={(e) => this.handleCheck(index, e)} />
-          <Form.Check.Label>
-            <TransactionEditorRow index={index}
-                                  editTransaction={(data) => this.editTransaction(index, data)}
-                                  data={transaction}
-                                  items={this.props.items}
-            />
-          </Form.Check.Label>
+          <TransactionEditorRow index={index}
+                                editTransaction={(data) => this.editTransaction(index, data)}
+                                data={transaction}
+                                items={this.props.items}
+                                ahValues={this.state.ahValues}
+          />
         </Form.Check>
       );
     }
@@ -682,6 +704,155 @@ class TransactionEditorRow extends React.Component {
   constructor(props) {
     super(props)
     this.state = {}
+    this.onTypeChange = this.onTypeChange.bind(this);
+  }
+
+  onTypeChange(e) {
+    var data = { ...this.props.data };
+    data.type = e.target.value;
+    this.props.editTransaction(data);
+  }
+
+  removeItem(index, e) {
+    var data = { ...this.props.data };
+    data.items.splice(index, 1);
+    this.props.editTransaction(data);
+  }
+
+  onItemNameChange(index, s) {
+    if (s.length > 0 && s[0].itemId !== Number(this.props.data.items[index].itemId)) {
+      var data = { ...this.props.data };
+
+      data.items[index].itemId = s[0].itemId;
+
+      var count = data.items[index].incount + data.items[index].outcount;
+      data.items[index].points = count * this.props.ahValues[s[0].itemId];
+
+      this.props.editTransaction(data);
+    }
+  }
+
+  onCountChange(index, isIn, e) {
+    var data = { ...this.props.data };
+    if (isIn) {
+      data.items[index].incount = e.target.value;
+      data.items[index].outcount = 0;
+    } else {
+      data.items[index].incount = 0;
+      data.items[index].outcount = e.target.value;
+    }
+    this.props.editTransaction(data);
+  }
+
+  onPointsChange(index, e) {
+    var data = { ...this.props.data };
+    data.items[index].points = e.target.value;
+    this.props.editTransaction(data);
+  }
+
+  getItemRows() {
+    var rows = [];
+    if (this.props.data.items.length === 0) {
+      rows.push(
+        <>
+          <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
+            <Form.Label><b>Item Name</b></Form.Label>
+          </Form.Group>
+
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
+            <Form.Label><b>In</b></Form.Label>
+          </Form.Group>
+
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
+            <Form.Label><b>Out</b></Form.Label>
+          </Form.Group>
+
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Value"+this.props.index}>
+            <Form.Label><b>Value</b></Form.Label>
+          </Form.Group>
+          <Col xs="1" />
+        </>
+      );
+    } else {
+      var item = this.props.data.items[0];
+      rows.push(
+        <>
+          <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
+            <Form.Label><b>Item Name</b></Form.Label>
+            <Typeahead id={"transactionEditItem0Typeahead"+this.props.index}
+                       labelKey="name"
+                       onChange={(s) => this.onItemNameChange(0, s)}
+                       options={this.props.items}
+                       selected={[this.props.items.find(i => i.itemId === Number(item.itemId))]}
+                       minLength={4}
+            />
+          </Form.Group>
+
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
+            <Form.Label><b>In</b></Form.Label>
+            <Form.Control type="text" value={item.incount} onChange={(e) => this.onCountChange(0, true, e)} />
+          </Form.Group>
+
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
+            <Form.Label><b>Out</b></Form.Label>
+            <Form.Control type="text" value={item.outcount} onChange={(e) => this.onCountChange(0, false, e)} />
+          </Form.Group>
+
+          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Value"+this.props.index}>
+            <Form.Label><b>Value</b></Form.Label>
+            <Form.Control type="text" disabled={this.props.data.type !== 'donation'}
+                          value={this.props.data.type === 'donation' ? item.points : 0}
+                          onChange={(e) => this.onPointsChange(0, e)}
+            />
+          </Form.Group>
+
+          <Col xs="1">
+            <Form.Label style={{'color': 'white'}}><b>X</b></Form.Label>
+            <div><Button variant="outline-danger" onClick={(e) => this.removeItem(0, e)}>X</Button></div>
+          </Col>
+        </>
+      );
+    }
+    this.props.data.items.forEach((item, index) => {
+      if (index !== 0) {
+        rows.push(
+          <Form.Row key={index}>
+            <Col />
+            <Col />
+            <Form.Group as={Col} controlId={"tranactionEditItem"+index+"Name"+this.props.index}>
+              <Typeahead id={"transactionEditItem"+index+"Typeahead"+this.props.index}
+                         labelKey="name"
+                         onChange={(s) => this.onItemNameChange(index, s)}
+                         options={this.props.items}
+                         selected={[this.props.items.find(i => i.itemId === Number(item.itemId))]}
+                         minLength={4}
+              />
+            </Form.Group>
+
+            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem"+index+"In"+this.props.index}>
+              <Form.Control type="text" value={item.incount} onChange={(e) => this.onCountChange(index, true, e)} />
+            </Form.Group>
+
+            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem"+index+"Out"+this.props.index}>
+              <Form.Control type="text" value={item.outcount} onChange={(e) => this.onCountChange(index, false, e)} />
+            </Form.Group>
+
+            <Form.Group as={Col} xs="1" controlId={"tranactionEditItem"+index+"Value"+this.props.index}>
+              <Form.Control type="text" disabled={this.props.data.type !== 'donation'}
+                            value={this.props.data.type === 'donation' ? item.points : 0}
+                            onChange={(e) => this.onPointsChange(index, e)}
+              />
+            </Form.Group>
+
+            <Col xs="1">
+              <div><Button variant="outline-danger" onClick={(e) => this.removeItem(index, e)}>X</Button></div>
+            </Col>
+          </Form.Row>
+        );
+      }
+    });
+
+    return rows;
   }
 
   render() {
@@ -693,6 +864,8 @@ class TransactionEditorRow extends React.Component {
       'crafting': 'Crafting',
     };
 
+    var rows = this.getItemRows();
+    var firstRow = rows.shift();
     return (
       <div className="transactionEditorRow">
         <Form.Row>
@@ -704,63 +877,15 @@ class TransactionEditorRow extends React.Component {
 
           <Form.Group as={Col} controlId={"transactionEditType"+this.props.index}>
             <Form.Label><b>Type</b></Form.Label>
-            <Form.Control as="select" value={typeDisplay[this.props.data.type]}>
+            <Form.Control as="select" value={this.props.data.type} onChange={this.onTypeChange}>
               {Object.keys(typeDisplay).map((key, index) =>
-                <option key={index}>{typeDisplay[key]}</option>
+                <option key={index} value={key}>{typeDisplay[key]}</option>
               )}
             </Form.Control>
           </Form.Group>
-
-          <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
-            <Form.Label><b>Item Name</b></Form.Label>
-            <Form.Control type="text" defaultValue="testName" />
-          </Form.Group>
-
-          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
-            <Form.Label><b>In</b></Form.Label>
-            <Form.Control type="text" defaultValue="testIn" />
-          </Form.Group>
-
-          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
-            <Form.Label><b>Out</b></Form.Label>
-            <Form.Control type="text" defaultValue="testOut" />
-          </Form.Group>
-
-          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Value"+this.props.index}>
-            <Form.Label><b>Value</b></Form.Label>
-            <Form.Control type="text" defaultValue="1.5" />
-          </Form.Group>
-
-          <Col xs="1">
-            <Form.Label style={{'color': 'white'}}><b>X</b></Form.Label>
-            <div><Button variant="outline-danger">X</Button></div>
-          </Col>
-
+          {firstRow}
         </Form.Row>
-        <Form.Row>
-          <Col />
-          <Col />
-          <Form.Group as={Col} controlId={"tranactionEditItem0Name"+this.props.index}>
-            <Form.Control type="text" defaultValue="testName" />
-          </Form.Group>
-
-          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
-            <Form.Control type="text" defaultValue="testIn" />
-          </Form.Group>
-
-          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
-            <Form.Control type="text" defaultValue="testOut" />
-          </Form.Group>
-
-          <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Value"+this.props.index}>
-            <Form.Control type="text" defaultValue="1.25" />
-          </Form.Group>
-
-          <Col xs="1">
-            <Button variant="outline-danger">X</Button>
-          </Col>
-
-        </Form.Row>
+        {rows}
       </div>
     );
   }
