@@ -44,7 +44,7 @@ class App extends React.Component {
           <span>Welcome to the Continuum Guild Bank</span>
         </div>
         <div>
-          <MyModal whenSaved={this.modalSaved} items={this.state.items} />
+          <MyModal whenSaved={this.modalSaved} items={this.state.items} players={this.state.players} />
           <Tabs defaultActiveKey="storage" transition={false}>
             <Tab eventKey="storage" title="Storage">
               <StorageTable items={this.state.items} />
@@ -94,9 +94,8 @@ class TransactionTable extends React.Component {
   }
 
   parseTransactions(data) {
-    var currentTransactions = this.state.transactions;
-    this.setState({
-      transactions: {...currentTransactions, ...data}
+    this.setState((state, props) => {
+      return {transactions: {...state.transactions, ...data}};
     });
   }
 
@@ -120,33 +119,33 @@ class TransactionTable extends React.Component {
       return 0;
     }).reverse();
 
-    for (var transactionId of transactionIds) {
+    for (const transactionId of transactionIds) {
       var transaction = transactions[transactionId];
       var row = [
-        capitalize(transaction['character']),
-        this.parseDate(transaction['date']),
-        transaction['type'],
+        capitalize(transaction.character),
+        this.parseDate(transaction.date),
+        transaction.type,
         [],  // Item Name
         [],  // In
         [],  // Out
         [],  // Points
       ];
 
-      if (Number(transaction['money']) > 0) {
+      if (Number(transaction.money) > 0) {
         row[3].push(<a href="https://wowhead.com/item=92600" className="q1" data-wh-icon-size="tiny">Gold</a>);
-        row[4].push(parseGold(transaction['money']));
+        row[4].push(parseGold(transaction.money));
         row[5].push('');
-        row[6].push(transaction['money'] / 10000);
-      } else if (Number(transaction['money']) < 0) {
+        row[6].push(transaction.money / 10000);
+      } else if (Number(transaction.money) < 0) {
         row[3].push('Gold');
         row[4].push('');
-        row[5].push(transaction['money']);
-        row[6].push(transaction['money']);
+        row[5].push(transaction.money);
+        row[6].push(transaction.money);
       }
 
-      for (var itemId in transaction['items']) {
-        var count = transaction['items'][itemId]['count'];
-        var points = transaction['items'][itemId]['points'];
+      for (const itemId in transaction.items) {
+        var count = transaction.items[itemId].count;
+        var points = transaction.items[itemId].points;
         row[3].push(<a href={"https://classic.wowhead.com/item=" + itemId} data-wh-rename-link="true" data-wh-icon-size="tiny"> </a>);
         row[6].push(points);
         if (count > 0) {
@@ -200,12 +199,11 @@ class PlayerTable extends React.Component {
   playersToRows() {
     var rows = [];
     var players = this.props.players.mains;
-    for (var playerName in players) {
-      var row = [
+    for (const playerName in players) {
+      rows.push([
         capitalize(playerName),
         players[playerName].points,
-      ];
-      rows.push(row);
+      ]);
     }
 
     // Sort Alphabetically by Item Name
@@ -275,7 +273,7 @@ class StorageTable extends React.Component {
     var rows = [];
     var storage = this.state.storage;
     var items = this.parseItems(this.props.items);
-    for (var itemId in storage) {
+    for (const itemId in storage) {
       var row = [
         <a href={"https://classic.wowhead.com/item=" + itemId}>{items[itemId] || 'Unknown'}</a>,
         [],  // Quantity
@@ -287,12 +285,12 @@ class StorageTable extends React.Component {
         row[0] = <a href="https://wowhead.com/item=92600" className="q1">Gold</a>;
         row[3] = 'Gold';
 
-        for (var charName in storage[itemId]) {
+        for (const charName in storage[itemId]) {
           row[1].push(parseGold(storage[itemId][charName]));
           row[2].push(capitalize(charName));
         }
       } else {
-        for (charName in storage[itemId]) {
+        for (const charName in storage[itemId]) {
           row[1].push(storage[itemId][charName]);
           row[2].push(capitalize(charName));
         }
@@ -408,6 +406,7 @@ class MyModal extends React.Component {
             <MyModalBody submitted={this.state.submitted}
                          setSubmitted={this.setSubmitted}
                          items={this.props.items}
+                         players={this.props.players}
             />
           </Modal.Body>
         </Modal>
@@ -461,10 +460,10 @@ class MyModalBody extends React.Component {
       this.setState({phaseTwo: true});
       var json = JSON.parse(this.state.addonString);
       this.uploadStorageData(json);
-      if (json['transactions'].length === 0) {
+      if (json.transactions.length === 0) {
         this.props.setSubmitted(true);
       } else {
-        this.setState({phaseTwo: true, parsedTransactions: json['transactions']});
+        this.setState({phaseTwo: true, parsedTransactions: json.transactions});
       }
     } else {
       this.setState({validAddonString: false});
@@ -472,10 +471,10 @@ class MyModalBody extends React.Component {
   }
 
   uploadStorageData(json) {
-    var bags = { ...json['bags'], 1: json['money']};
-    var body = {character: json['character'], bags: bags};
-    if (json['bank'] !== null) {
-      body['bank'] = json['bank'];
+    var bags = { ...json.bags, 1: json.money};
+    var body = {character: json.character, bags: bags};
+    if (json.bank !== null) {
+      body.bank = json.bank;
     }
 
     const requestOptions = {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)};
@@ -508,6 +507,7 @@ class MyModalBody extends React.Component {
       return <TransactionEditor setParentState={this.setState.bind(this)}
                                 initialTransactions={this.state.parsedTransactions}
                                 items={this.props.items}
+                                players={this.props.players}
              />
     } else {                            // Phase One on open
       return (
@@ -529,9 +529,7 @@ class TransactionEditor extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      alts: {},
       newAlts: {},
-      points: {},
       ahValues: {},
       transactions: {},
       loading: false,
@@ -542,10 +540,6 @@ class TransactionEditor extends React.Component {
 
   componentDidMount() {
     this.setState({loading: true});
-
-    fetch('/getPlayers').then(res => res.json()).then(data => {
-      this.parsePlayers(data);
-    });
 
     fetch('https://api.nexushub.co/wow-classic/v1/items/sulfuras-alliance')
       .then(res => res.json()).then(data => {
@@ -558,20 +552,16 @@ class TransactionEditor extends React.Component {
     }
   }
 
-  parsePlayers(players) {
-    this.setState({alts: players['alts'], points: players['mains']});
-  }
-
   parseAhValues(data) {
     var items = {}
-    for (const index in data['data']) {
-      items[data['data'][index]['itemId']] = parseInt(data['data'][index]['marketValue']) / 10000;
+    for (const index in data.data) {
+      items[data.data[index].itemId] = parseInt(data.data[index].marketValue) / 10000;
     }
 
     this.setState((state, props) => {
       var transactions = { ...state.transactions };
       for (const index in transactions) {
-        for (const item of transactions[index]['items']) {
+        for (const item of transactions[index].items) {
           if (item.itemId !== '1') {  // Special case for Gold
             var count = item.incount + item.outcount;
             item.points = count * items[item.itemId]
@@ -597,13 +587,13 @@ class TransactionEditor extends React.Component {
       var parsedTransaction = {
         variant: 'parsed',
         checked: false,
-        player: transaction['sender'],
+        player: transaction.sender,
         type: 'donation',
         items: [],
       };
-      if (Number(transaction['money']) !== 0) {
-        var money = parseInt(transaction['money']) / 10000;
-        parsedTransaction['items'].push({
+      if (Number(transaction.money) !== 0) {
+        var money = parseInt(transaction.money) / 10000;
+        parsedTransaction.items.push({
           'itemId': '1',
           'incount': money > 0 ? money : 0,
           'outcount': money < 0 ? -money : 0,
@@ -611,9 +601,9 @@ class TransactionEditor extends React.Component {
           'name': 'Gold',
         });
       }
-      for (const itemId in transaction['items']) {
-        var count = parseInt(transaction['items'][itemId]);
-        parsedTransaction['items'].push({
+      for (const itemId in transaction.items) {
+        var count = parseInt(transaction.items[itemId]);
+        parsedTransaction.items.push({
           'itemId': itemId,
           'incount': count > 0 ? count : 0,
           'outcount': count < 0 ? -count : 0,
@@ -656,7 +646,7 @@ class TransactionEditor extends React.Component {
     const checked = e.target.checked;
     this.setState((state, props) => {
       var transactions = { ...state.transactions };
-      transactions[index]['checked'] = checked;
+      transactions[index].checked = checked;
       return {transactions: transactions};
     });
   }
@@ -678,6 +668,7 @@ class TransactionEditor extends React.Component {
                                 data={transaction}
                                 items={this.props.items}
                                 ahValues={this.state.ahValues}
+                                players={this.props.players}
           />
         </Form.Check>
       );
