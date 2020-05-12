@@ -78,7 +78,7 @@ class TransactionTable extends React.Component {
   }
 
   componentDidUpdate() {
-    sleep(150).then(() => {
+    sleep(200).then(() => {
       window.$WowheadPower.refreshLinks();
     });
   }
@@ -253,7 +253,7 @@ class StorageTable extends React.Component {
   }
 
   componentDidUpdate() {
-    sleep(150).then(() => {
+    sleep(200).then(() => {
       window.$WowheadPower.refreshLinks();
     });
   }
@@ -296,7 +296,6 @@ class StorageTable extends React.Component {
         }
       }
 
-
       rows.push(row);
     }
 
@@ -305,6 +304,7 @@ class StorageTable extends React.Component {
       var x = a[3].toLowerCase();
       var y = b[3].toLowerCase();
       if (x === 'gold') {return -1;}
+      if (y === 'gold') {return 1;}
       if (x < y) {return -1;}
       if (x > y) {return 1;}
       return 0;
@@ -533,9 +533,12 @@ class TransactionEditor extends React.Component {
       ahValues: {},
       transactions: {},
       loading: false,
+      errorText: "",
     };
 
     this.addTransaction = this.addTransaction.bind(this);
+    this.deleteSelected = this.deleteSelected.bind(this);
+    this.joinSelected = this.joinSelected.bind(this);
   }
 
   componentDidMount() {
@@ -616,10 +619,69 @@ class TransactionEditor extends React.Component {
     this.setState({transactions: parsedTransactions});
   }
 
+  deleteSelected() {
+    this.setState((state, props) => {
+      var transactions = { ...state.transactions };
+      for (const index in transactions) {
+        if (transactions[index].checked) {
+          delete transactions[index];
+        }
+      }
+      return {transactions: transactions};
+    });
+  }
+
+  joinSelected() {
+    this.setState((state, props) => {
+      var transactions = { ...state.transactions };
+      var firstTransaction = null;
+      var firstIndex = -1;
+      for (const index in transactions) {
+        if (transactions[index].checked) {
+          if (firstTransaction === null) {
+            firstTransaction = { ...transactions[index] };
+            firstIndex = index;
+          } else if (firstTransaction.player !== transactions[index].player) {
+            return {errorText: "Selected transactions must be with the same player."};
+          } else {
+            firstTransaction.items = [...firstTransaction.items, ...transactions[index].items];
+            delete transactions[index];
+          }
+        }
+      }
+      if (firstTransaction !== null) {
+        firstTransaction.items = this.consolidateItems(firstTransaction.items);
+        transactions[firstIndex] = firstTransaction;
+      }
+      return {transactions: transactions, errorText: ""};
+    });
+  }
+
+  consolidateItems(items) {
+    var newItems = {};
+    for (var item of items) {
+      if (item.itemId in newItems) {
+        var count = newItems[item.itemId].inCount - newItems[item.itemId].outCount + item.inCount - item.outCount;
+        newItems[item.itemId].inCount = count > 0 ? count : 0;
+        newItems[item.itemId].outCount = count < 0 ? -count : 0;
+
+        var points = newItems[item.itemId].inCount > 0 ? newItems[item.itemId].points : -newItems[item.itemId].points;
+        points += item.inCount > 0 ? item.points : -item.points;
+        newItems[item.itemId].points = Math.abs(points);
+      } else {
+        newItems[item.itemId] = { ...item };
+      }
+    }
+    var newItemsArray = [];
+    for (const itemId in newItems) {
+      newItemsArray.push(newItems[itemId]);
+    }
+    return newItemsArray;
+  }
+
   addTransaction() {
     this.setState((state, props) => {
       var transactions = { ...state.transactions };
-      console.log(transactions);
       var maxIndex = Object.keys(transactions).reduce((a, b) => parseInt(a) > parseInt(b) ? a : b);
       transactions[parseInt(maxIndex) + 1] = {
         variant: 'manual',
@@ -628,7 +690,6 @@ class TransactionEditor extends React.Component {
         type: 'donation',
         items: [],
       }
-      console.log(transactions);
       return {transactions: transactions};
     });
   }
@@ -675,13 +736,23 @@ class TransactionEditor extends React.Component {
 
     return (
       <>
+        <Button inline variant="outline-info" onClick={this.deleteSelected} className="transactionTopButton">
+          Delete Selected
+        </Button>
+        <Button inline variant="outline-info" onClick={this.joinSelected} className="transactionTopButton">
+          Join Selected
+        </Button>
+        <span className="errorText">{this.state.errorText}</span>
+        <Button inline variant="primary" onClick={this.addTransaction} className="editTransactionUploadButton">
+          Submit
+        </Button>
         <Form onSubmit={(e) => e.preventDefault()}>
           <Form.Group controlId="editTransactionRows">
             {rowItems}
           </Form.Group>
         </Form>
         <Button variant="outline-info" onClick={this.addTransaction} className="addTransactionButton">
-          Add More
+          Add Transaction
         </Button>
       </>
     );

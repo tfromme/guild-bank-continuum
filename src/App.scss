@@ -76,10 +76,26 @@ table {
 .addTransactionButton {
   display: block;
   margin: auto;
+  margin-bottom: 8px;
 }
 
 .addItemButton {
   display: block;
   margin: auto;
   margin-bottom: 5px;
+}
+
+.transactionTopButton {
+  margin-bottom: 8px;
+  margin-left: 22px;
+}
+
+.editTransactionUploadButton {
+  margin-bottom: 8px;
+  float: right;
+}
+
+.errorText {
+  color: #dc3545;
+  margin-left: 15px;
 }
