@@ -149,7 +149,7 @@ end
 function GuildBankContinuum:TrackTransaction(sender, money, items)
   local count = 0
   for _ in pairs(items) do count = count + 1 end
-  if count ~= 0 and money ~= 0 then
+  if count ~= 0 or money ~= 0 then
     local index = #transactions + 1
 
     transactions[index] = {
