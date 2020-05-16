@@ -124,7 +124,7 @@ function GuildBankContinuum:readMail()
     if numMail > 0 then
       for mail=1, numMail do
         local _, _, sender, _, money, COD, _, _, wasRead, _, _, _, _ = GetInboxHeaderInfo(mail)
-        if not (sender == "Alliance Auction House") and not wasRead then
+        if sender ~= "Alliance Auction House" and not wasRead then
           local attached_items = {}
 
           for item=1, ATTACHMENTS_MAX_RECEIVE do
@@ -147,13 +147,17 @@ function GuildBankContinuum:readMail()
 end
 
 function GuildBankContinuum:TrackTransaction(sender, money, items)
-  local index = #transactions + 1
+  local count = 0
+  for _ in pairs(items) do count = count + 1 end
+  if count ~= 0 and money ~= 0 then
+    local index = #transactions + 1
 
-  transactions[index] = {
-    sender = sender,
-    money = money,
-    items = items
-  }
+    transactions[index] = {
+      sender = sender,
+      money = money,
+      items = items
+    }
+  end
 end
 
 function GuildBankContinuum:DisplayExportString(exportString)
