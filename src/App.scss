@@ -65,6 +65,10 @@ table {
   padding: 0px 5px 0px 5px;
 }
 
+.transactionEditorRow.is-invalid {
+  border-color: #dc3545;
+}
+
 .form-check-input {
   margin-top: .5rem;
 }

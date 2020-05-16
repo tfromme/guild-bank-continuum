@@ -539,6 +539,7 @@ class TransactionEditor extends React.Component {
     this.addTransaction = this.addTransaction.bind(this);
     this.deleteSelected = this.deleteSelected.bind(this);
     this.joinSelected = this.joinSelected.bind(this);
+    this.upload = this.upload.bind(this);
   }
 
   componentDidMount() {
@@ -575,15 +576,7 @@ class TransactionEditor extends React.Component {
     });
   }
 
-  parseItems(data) {
-    return data.reduce((acc, cur) => {
-      acc[cur.itemId] = cur.name;
-      return acc;
-    }, {});
-  }
-
   parseInitial(transactions) {
-    var itemNames = this.parseItems(this.props.items);
     var parsedTransactions = {};
     transactions.forEach((transaction, index) => {
       var parsedTransaction = {
@@ -600,7 +593,6 @@ class TransactionEditor extends React.Component {
           'inCount': money > 0 ? money : 0,
           'outCount': money < 0 ? -money : 0,
           'points': 0,
-          'name': 'Gold',
         });
       }
       for (const itemId in transaction.items) {
@@ -610,7 +602,6 @@ class TransactionEditor extends React.Component {
           'inCount': count > 0 ? count : 0,
           'outCount': count < 0 ? -count : 0,
           'points': 0,
-          'name': itemNames[itemId],
         });
       }
 
@@ -702,6 +693,16 @@ class TransactionEditor extends React.Component {
     });
   }
 
+  upload(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.target.getElementsByClassName('is-invalid').length > 0) {
+      this.setState({errorText: "Double Check for Invalid Input."});
+    } else {
+      this.setState({errorText: ""});
+    }
+  }
+
   handleCheck(index, e) {
     const checked = e.target.checked;
     this.setState((state, props) => {
@@ -736,17 +737,17 @@ class TransactionEditor extends React.Component {
 
     return (
       <>
-        <Button inline variant="outline-info" onClick={this.deleteSelected} className="transactionTopButton">
-          Delete Selected
-        </Button>
-        <Button inline variant="outline-info" onClick={this.joinSelected} className="transactionTopButton">
-          Join Selected
-        </Button>
-        <span className="errorText">{this.state.errorText}</span>
-        <Button inline variant="primary" onClick={this.addTransaction} className="editTransactionUploadButton">
-          Submit
-        </Button>
-        <Form onSubmit={(e) => e.preventDefault()}>
+        <Form onSubmit={this.upload} noValidate>
+          <Button inline variant="outline-info" onClick={this.deleteSelected} className="transactionTopButton">
+            Delete Selected
+          </Button>
+          <Button inline variant="outline-info" onClick={this.joinSelected} className="transactionTopButton">
+            Join Selected
+          </Button>
+          <span className="errorText">{this.state.errorText}</span>
+          <Button inline variant="primary" type="submit" className="editTransactionUploadButton">
+            Upload
+          </Button>
           <Form.Group controlId="editTransactionRows">
             {rowItems}
           </Form.Group>
@@ -763,8 +764,8 @@ class TransactionEditor extends React.Component {
 class TransactionEditorRow extends React.Component {
 
   constructor(props) {
-    super(props)
-    this.state = {}
+    super(props);
+    this.state = {};
     this.onTypeChange = this.onTypeChange.bind(this);
     this.addItem = this.addItem.bind(this);
   }
@@ -778,11 +779,10 @@ class TransactionEditorRow extends React.Component {
   addItem() {
     var data = { ...this.props.data };
     data.items.push({
-      'itemId': 1,
+      'itemId': '1',
       'inCount': 0,
       'outCount': 0,
       'points': 0,
-      'name': "Gold",
     });
     this.props.editTransaction(data);
   }
@@ -825,6 +825,14 @@ class TransactionEditorRow extends React.Component {
     var data = { ...this.props.data };
     data.items[index].points = e.target.value;
     this.props.editTransaction(data);
+  }
+
+  isValidNumber(str) {
+    return /^\d*\.?\d+$/.test(str);
+  }
+
+  isValidInteger(str) {
+    return /^\d+$/.test(str);
   }
 
   getItemRows() {
@@ -871,18 +879,27 @@ class TransactionEditorRow extends React.Component {
 
           <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0In"+this.props.index}>
             <Form.Label><b>In</b></Form.Label>
-            <Form.Control type="text" value={item.inCount} onChange={(e) => this.onCountChange(0, true, e)} />
+            <Form.Control type="text"
+                          value={item.inCount}
+                          isInvalid={Number(item.itemId) === 1 ? !this.isValidNumber(item.inCount) : !this.isValidInteger(item.inCount)}
+                          onChange={(e) => this.onCountChange(0, true, e)}
+            />
           </Form.Group>
 
           <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Out"+this.props.index}>
             <Form.Label><b>Out</b></Form.Label>
-            <Form.Control type="text" value={item.outCount} onChange={(e) => this.onCountChange(0, false, e)} />
+            <Form.Control type="text"
+                          value={item.outCount}
+                          isInvalid={Number(item.itemId) === 1 ? !this.isValidNumber(item.outCount) : !this.isValidInteger(item.outCount)}
+                          onChange={(e) => this.onCountChange(0, false, e)}
+            />
           </Form.Group>
 
           <Form.Group as={Col} xs="1" controlId={"tranactionEditItem0Value"+this.props.index}>
             <Form.Label><b>Value</b></Form.Label>
             <Form.Control type="text" disabled={this.props.data.type !== 'donation'}
                           value={this.props.data.type === 'donation' ? item.points : 0}
+                          isInvalid={!this.isValidNumber(this.props.data.type === 'donation' ? item.points : 0)}
                           onChange={(e) => this.onPointsChange(0, e)}
             />
           </Form.Group>
@@ -912,16 +929,25 @@ class TransactionEditorRow extends React.Component {
             </Form.Group>
 
             <Form.Group as={Col} xs="1" controlId={"tranactionEditItem"+index+"In"+this.props.index}>
-              <Form.Control type="text" value={item.inCount} onChange={(e) => this.onCountChange(index, true, e)} />
+              <Form.Control type="text"
+                            value={item.inCount}
+                            isInvalid={Number(item.itemId) === 1 ? !this.isValidNumber(item.inCount) : !this.isValidInteger(item.inCount)}
+                            onChange={(e) => this.onCountChange(0, true, e)}
+              />
             </Form.Group>
 
             <Form.Group as={Col} xs="1" controlId={"tranactionEditItem"+index+"Out"+this.props.index}>
-              <Form.Control type="text" value={item.outCount} onChange={(e) => this.onCountChange(index, false, e)} />
+              <Form.Control type="text"
+                            value={item.outCount}
+                            isInvalid={Number(item.itemId) === 1 ? !this.isValidNumber(item.outCount) : !this.isValidInteger(item.outCount)}
+                            onChange={(e) => this.onCountChange(0, false, e)}
+              />
             </Form.Group>
 
             <Form.Group as={Col} xs="1" controlId={"tranactionEditItem"+index+"Value"+this.props.index}>
               <Form.Control type="text" disabled={this.props.data.type !== 'donation'}
                             value={this.props.data.type === 'donation' ? item.points : 0}
+                            isInvalid={!this.isValidNumber(this.props.data.type === 'donation' ? item.points : 0)}
                             onChange={(e) => this.onPointsChange(index, e)}
               />
             </Form.Group>
@@ -969,7 +995,7 @@ class TransactionEditorRow extends React.Component {
     }
 
     return (
-      <div className="transactionEditorRow">
+      <div className={"transactionEditorRow" + (this.props.data.items.length === 0 ? " is-invalid" : "")}>
         <Form.Row>
 
           <Form.Group as={Col} controlId={"transactionEditName"+this.props.index}>
